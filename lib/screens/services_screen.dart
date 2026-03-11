@@ -135,13 +135,166 @@ class _ServicesScreenState extends State<ServicesScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: _showAddServiceSheet,
         backgroundColor: BizColors.forest,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: const Text('Add Service', style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w800,
         )),
+      ),
+    );
+  }
+
+  void _showAddServiceSheet() {
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+    String selectedCat = 'Haircut';
+    String selectedDuration = '30 min';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(24, 20, 24,
+              MediaQuery.of(ctx).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: BizColors.bgMuted,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text('Add New Service', style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: BizColors.textPrimary,
+              )),
+              const SizedBox(height: 20),
+              TextField(
+                controller: nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Service Name',
+                  filled: true,
+                  fillColor: BizColors.bgSurface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedCat,
+                decoration: InputDecoration(
+                  labelText: 'Category',
+                  filled: true,
+                  fillColor: BizColors.bgSurface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items: ['Haircut', 'Beard', 'Treatment', 'Packages']
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (v) => setModalState(() => selectedCat = v!),
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: selectedDuration,
+                    decoration: InputDecoration(
+                      labelText: 'Duration',
+                      filled: true,
+                      fillColor: BizColors.bgSurface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    items: ['20 min', '30 min', '45 min', '60 min', '90 min']
+                        .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                        .toList(),
+                    onChanged: (v) => setModalState(() => selectedDuration = v!),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Price (AZN)',
+                      filled: true,
+                      fillColor: BizColors.bgSurface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () {
+                  final name = nameController.text.trim();
+                  final price = priceController.text.trim();
+                  if (name.isEmpty || price.isEmpty) return;
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _services.add({
+                      'name': name,
+                      'cat': selectedCat,
+                      'duration': selectedDuration,
+                      'price': price,
+                      'bookings': 0,
+                      'active': true,
+                      'icon': Icons.miscellaneous_services_rounded,
+                      'color': 0xFFE8F0E4,
+                    });
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('$name added successfully'),
+                    backgroundColor: BizColors.green,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: BizColors.forest,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Center(
+                    child: Text('Add Service', style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    )),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

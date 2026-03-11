@@ -28,19 +28,21 @@ class BizColors {
   static const green        = Color(0xFF3DAD7F);
   static const blue         = Color(0xFF4A90D9);
 
-  static List<BoxShadow> shadow = [
+  // 0x14 = ~8% opacity on black
+  static const List<BoxShadow> shadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.08),
+      color: Color(0x14000000),
       blurRadius: 16,
-      offset: const Offset(0, 4),
+      offset: Offset(0, 4),
     )
   ];
 
-  static List<BoxShadow> shadowStrong = [
+  // 0x24 = ~14% opacity on black
+  static const List<BoxShadow> shadowStrong = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.14),
+      color: Color(0x24000000),
       blurRadius: 28,
-      offset: const Offset(0, 8),
+      offset: Offset(0, 8),
     )
   ];
 }

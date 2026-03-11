@@ -12,6 +12,110 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
   int _selectedTab = 0;
   final List<String> _tabs = ['All', 'Pending', 'Confirmed', 'Completed'];
 
+  void _declineBooking(Map<String, dynamic> b) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Decline Booking', style: TextStyle(
+          fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
+        content: Text('Decline ${b['service']} for ${b['name']}?',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF6E7E68))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF7B9180))),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _bookings.remove(b));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Booking declined for ${b['name']}'),
+                backgroundColor: BizColors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ));
+            },
+            child: Text('Decline',
+              style: TextStyle(color: BizColors.red, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _markComplete(Map<String, dynamic> b) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Mark as Complete', style: TextStyle(
+          fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
+        content: Text('Mark ${b['service']} for ${b['name']} as completed?',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF6E7E68))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF7B9180))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => b['status'] = 'completed');
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('${b['service']} marked as complete'),
+                backgroundColor: BizColors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: BizColors.forest,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _callClient(Map<String, dynamic> b) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(b['name'] as String, style: const TextStyle(
+          fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: BizColors.sageBg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.phone_rounded, color: BizColors.sageDark, size: 20),
+                const SizedBox(width: 10),
+                Text(b['phone'] as String, style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF7B9180))),
+          ),
+        ],
+      ),
+    );
+  }
+
   final List<Map<String, dynamic>> _bookings = [
     {
       'name': 'Rauf Məmmədov',
@@ -402,19 +506,22 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: BizColors.red.withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: BizColors.red.withOpacity(0.2)),
-                    ),
-                    child: Center(
-                      child: Text('✕ Decline', style: TextStyle(
-                        color: BizColors.red,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      )),
+                  child: GestureDetector(
+                    onTap: () => _declineBooking(b),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: BizColors.red.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: BizColors.red.withOpacity(0.2)),
+                      ),
+                      child: Center(
+                        child: Text('✕ Decline', style: TextStyle(
+                          color: BizColors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        )),
+                      ),
                     ),
                   ),
                 ),
@@ -425,43 +532,49 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               child: Row(children: [
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: BizColors.sageBg,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.phone_rounded,
-                            color: BizColors.sageDark, size: 14),
-                          const SizedBox(width: 6),
-                          Text('Call Client', style: TextStyle(
-                            color: BizColors.sageDark,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          )),
-                        ],
+                  child: GestureDetector(
+                    onTap: () => _callClient(b),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: BizColors.sageBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.phone_rounded,
+                              color: BizColors.sageDark, size: 14),
+                            const SizedBox(width: 6),
+                            Text('Call Client', style: TextStyle(
+                              color: BizColors.sageDark,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            )),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: BizColors.forest,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Center(
-                      child: Text('Mark Complete', style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      )),
+                  child: GestureDetector(
+                    onTap: () => _markComplete(b),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: BizColors.forest,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text('Mark Complete', style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        )),
+                      ),
                     ),
                   ),
                 ),

@@ -479,6 +479,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 else
                   Row(children: [
                     GestureDetector(
+                      onTap: () => setState(() {
+                        _bookings.removeAt(index);
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
@@ -494,6 +497,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(width: 5),
                     GestureDetector(
+                      onTap: () => setState(() => b['status'] = 'confirmed'),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(

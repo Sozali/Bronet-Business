@@ -9,9 +9,25 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  int _selectedDay = 0;
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  final List<String> _dates = ['3', '4', '5', '6', '7', '8', '9'];
+  late List<String> _dates;
+  late int _selectedDay;
+  late String _monthLabel;
+
+  static const _months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final today = DateTime.now();
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    _dates = List.generate(7, (i) => '${monday.add(Duration(days: i)).day}');
+    _selectedDay = today.weekday - 1; // 0=Mon … 6=Sun
+    _monthLabel = '${_months[today.month - 1]} ${today.year}';
+  }
 
   final Map<String, bool> _workingDays = {
     'Mon': true,
@@ -92,7 +108,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 Icon(Icons.calendar_month_rounded,
                   color: BizColors.forest, size: 14),
                 const SizedBox(width: 6),
-                Text('March 2026', style: TextStyle(
+                Text(_monthLabel, style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: BizColors.forest,

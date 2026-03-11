@@ -38,18 +38,21 @@ class RootScreen extends StatefulWidget {
 class _RootScreenState extends State<RootScreen> {
   int _currentTab = 0;
 
-  final List<Widget> _screens = const [
+  static const List<Widget> _screens = [
     DashboardScreen(),
     BookingsManagerScreen(),
     ServicesScreen(),
-    const ScheduleScreen(),
-    const BusinessProfileScreen(),
+    ScheduleScreen(),
+    BusinessProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentTab],
+      body: IndexedStack(
+        index: _currentTab,
+        children: _screens,
+      ),
       bottomNavigationBar: _buildNav(),
     );
   }
@@ -67,9 +70,9 @@ class _RootScreenState extends State<RootScreen> {
         color: Colors.white,
         border: Border(top: BorderSide(
           color: const Color(0xFFA8B6A1).withOpacity(0.2))),
-        boxShadow: [BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 20, offset: const Offset(0, -4),
+        boxShadow: const [BoxShadow(
+          color: Color(0x0F000000),
+          blurRadius: 20, offset: Offset(0, -4),
         )],
       ),
       child: SafeArea(
