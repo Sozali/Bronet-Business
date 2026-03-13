@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../theme/colors.dart';
+import '../services/booking_api.dart';
+import '../services/auth_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -10,55 +13,315 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedDay = 0;
-  final List<String> _days = ['Today', 'Tomorrow', 'This Week'];
+  bool _isOpen = true;
+  bool _loadingStatus = false;
+  final List<String> _days = ['Bu gün', 'Sabah', 'Bu həftə'];
+
+  // Real-time notification polling
+  int _notifCount = 0;
+  Timer? _pollTimer;
+  final Set<String> _seenIds = {};
+
+  // Break mode
+  bool _onBreak = false;
+  int _breakSecsLeft = 0;
+  Timer? _breakTimer;
+
+  // Revenue hiding
+  bool _showRevenue = false;
 
   final List<Map<String, dynamic>> _bookings = [
     {
       'name': 'Rauf Məmmədov',
-      'service': 'Classic Haircut + Beard',
-      'time': '10:00',
-      'duration': '45 min',
-      'price': '25 AZN',
+      'service': 'Diş Ağardılması',
+      'time': '09:30',
+      'duration': '60 dəq',
+      'price': '120 AZN',
       'status': 'confirmed',
       'avatar': '👨',
     },
     {
       'name': 'Leyla Əliyeva',
-      'service': 'Hair Coloring',
-      'time': '11:30',
-      'duration': '90 min',
-      'price': '65 AZN',
+      'service': 'Diş Təmizlənməsi',
+      'time': '11:00',
+      'duration': '45 dəq',
+      'price': '55 AZN',
       'status': 'confirmed',
       'avatar': '👩',
     },
     {
       'name': 'Tural Hüseynov',
-      'service': 'Classic Haircut',
+      'service': 'Diş Müayinəsi',
       'time': '13:00',
-      'duration': '30 min',
-      'price': '15 AZN',
+      'duration': '30 dəq',
+      'price': '40 AZN',
       'status': 'pending',
       'avatar': '👨',
     },
     {
-      'name': 'Nigar Quliyeva',
-      'service': 'Beard Trim',
+      'name': 'Nigar Rzayeva',
+      'service': 'Diş Ağardılması',
       'time': '14:30',
-      'duration': '20 min',
-      'price': '10 AZN',
+      'duration': '60 dəq',
+      'price': '120 AZN',
       'status': 'confirmed',
       'avatar': '👩',
     },
     {
-      'name': 'Elşən Babayev',
-      'service': 'Classic Haircut + Beard',
+      'name': 'Ismayil M.',
+      'service': 'Diş Rentgeni',
       'time': '16:00',
-      'duration': '45 min',
-      'price': '25 AZN',
+      'duration': '30 dəq',
+      'price': '35 AZN',
       'status': 'pending',
       'avatar': '👨',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+    _seedAndStartPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _breakTimer?.cancel();
+    super.dispose();
+  }
+
+  // ── Break helpers ─────────────────────────────────────────────────
+  String get _breakLabel {
+    final m = _breakSecsLeft ~/ 60;
+    final s = _breakSecsLeft % 60;
+    return '${m.toString().padLeft(2,'0')}:${s.toString().padLeft(2,'0')}';
+  }
+
+  void _startBreak(int minutes, {String? reason}) {
+    setState(() {
+      _onBreak = true;
+      _breakSecsLeft = minutes * 60;
+      _isOpen = false;
+    });
+    BookingApi.setBusinessOpen(false);
+    final msg = reason != null && reason.isNotEmpty
+        ? '☕ Fasilə başladı ($reason) — $minutes dəq'
+        : '☕ Fasilə başladı — $minutes dəq';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: const Color(0xFFD48A00),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
+    _breakTimer?.cancel();
+    _breakTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _breakSecsLeft--);
+      if (_breakSecsLeft <= 0) {
+        _breakTimer?.cancel();
+        setState(() { _onBreak = false; _isOpen = true; });
+        BookingApi.setBusinessOpen(true);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('☕ Fasilə bitdi — Biznes yenidən AÇIQDIR 🟢'),
+          backgroundColor: BizColors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    });
+  }
+
+  void _endBreakEarly() {
+    _breakTimer?.cancel();
+    setState(() { _onBreak = false; _isOpen = true; _breakSecsLeft = 0; });
+    BookingApi.setBusinessOpen(true);
+  }
+
+  void _showBreakPicker() {
+    final presets = [15, 30, 45, 60, 120];
+    final customCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController();
+    int? selectedPreset;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 36),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Center(child: Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: BizColors.bgMuted,
+                  borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20),
+              const Center(child: Text('☕ Fasilə Al', style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w900, color: BizColors.textPrimary))),
+              const SizedBox(height: 6),
+              Center(child: Text('Fasilə zamanı müştərilər rezerv edə bilməyəcək',
+                style: TextStyle(fontSize: 12, color: BizColors.textMuted),
+                textAlign: TextAlign.center)),
+              const SizedBox(height: 20),
+              // Preset chips
+              Wrap(spacing: 8, children: presets.map((min) {
+                final label = min < 60 ? '$min min' : '${min ~/ 60}h';
+                final sel = selectedPreset == min;
+                return GestureDetector(
+                  onTap: () => setSheet(() { selectedPreset = min; customCtrl.clear(); }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: sel ? BizColors.forest : BizColors.bgApp,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: sel ? BizColors.forest : BizColors.sage.withOpacity(0.3)),
+                    ),
+                    child: Text(label, style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: sel ? Colors.white : BizColors.textPrimary)),
+                  ),
+                );
+              }).toList()),
+              const SizedBox(height: 16),
+              // Custom time row
+              const Text('Xüsusi müddət', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BizColors.textMuted)),
+              const SizedBox(height: 8),
+              Row(children: [
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: customCtrl,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setSheet(() => selectedPreset = null),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      hintText: 'min',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('min', style: TextStyle(fontSize: 13, color: BizColors.textMuted)),
+                const SizedBox(width: 12),
+                Expanded(child: ElevatedButton(
+                  onPressed: () {
+                    final mins = int.tryParse(customCtrl.text.trim());
+                    if (mins != null && mins > 0) {
+                      Navigator.pop(ctx);
+                      _startBreak(mins, reason: reasonCtrl.text.trim().isEmpty ? null : reasonCtrl.text.trim());
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD48A00),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const Text('Fasilə Başlat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                )),
+              ]),
+              const SizedBox(height: 14),
+              // Reason field
+              TextField(
+                controller: reasonCtrl,
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  hintText: 'Səbəb (isteğe bağlı, məs. Nahar fasiləsi)',
+                  hintStyle: TextStyle(fontSize: 12, color: BizColors.textLight),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Start Custom Break button (uses preset or custom)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: selectedPreset != null ? () {
+                    Navigator.pop(ctx);
+                    _startBreak(selectedPreset!, reason: reasonCtrl.text.trim().isEmpty ? null : reasonCtrl.text.trim());
+                  } : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: BizColors.forest,
+                    disabledBackgroundColor: BizColors.bgMuted,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    selectedPreset != null
+                        ? '${selectedPreset! < 60 ? "$selectedPreset dəq" : "${selectedPreset! ~/ 60}s"} Fasilə Başlat'
+                        : 'Yuxarıdan müddət seçin',
+                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadStatus() async {
+    final open = await BookingApi.getBusinessOpen();
+    if (open != null && mounted) setState(() => _isOpen = open);
+  }
+
+  Future<void> _seedAndStartPolling() async {
+    // Seed existing bookings silently (no notif for already-existing ones)
+    final existing = await BookingApi.fetchBookings();
+    for (final b in existing) {
+      _seenIds.add(b['id']?.toString() ?? '');
+    }
+    // Now start polling for NEW ones
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _pollBookings());
+  }
+
+  Future<void> _pollBookings() async {
+    final bookings = await BookingApi.fetchBookings();
+    if (!mounted) return;
+    for (final b in bookings) {
+      final id = b['id']?.toString() ?? '';
+      if (id.isNotEmpty && !_seenIds.contains(id)) {
+        _seenIds.add(id);
+        setState(() => _notifCount++);
+        final service = b['service'] ?? 'Xidmət';
+        final client = b['clientName'] ?? 'Müştəri';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('🔔 Yeni rezerv: $service — $client'),
+          backgroundColor: BizColors.forest,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    }
+  }
+
+  Future<void> _toggleOpen(bool value) async {
+    setState(() => _loadingStatus = true);
+    final result = await BookingApi.setBusinessOpen(value);
+    if (mounted) {
+      setState(() {
+        _isOpen = result ?? value;
+        _loadingStatus = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_isOpen
+            ? '🟢 Biznes indi AÇIQDIR — rezervlər qəbul edilir'
+            : '🔴 Biznes indi BAĞLIDIR'),
+        backgroundColor: _isOpen ? BizColors.green : BizColors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
+              _buildOpenCloseToggle(),
               _buildStatsRow(),
               _buildRevenueCard(),
               _buildDaySelector(),
@@ -89,7 +353,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF2C3528), Color(0xFF1E2A1A)],
+          colors: [BizColors.forest, BizColors.forestDeep],
         ),
       ),
       child: Row(
@@ -120,7 +384,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   letterSpacing: -0.5,
                 )),
                 TextSpan(text: "ET ", style: TextStyle(
-                  color: Color(0xFFA8B6A1),
+                  color: BizColors.sage,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.5,
@@ -133,23 +397,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ])),
             ]),
             const SizedBox(height: 4),
-            Text('Qehreman Barbershop',
+            Text(BizAuthService.businessName,
               style: TextStyle(
                 color: Colors.white.withOpacity(0.55),
                 fontSize: 12,
               )),
           ]),
           Row(children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: const Center(
-                child: Icon(Icons.notifications_rounded,
-                  color: Colors.white, size: 18),
-              ),
+            GestureDetector(
+              onTap: () => setState(() => _notifCount = 0),
+              child: Stack(clipBehavior: Clip.none, children: [
+                Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.notifications_rounded,
+                      color: Colors.white, size: 18),
+                  ),
+                ),
+                if (_notifCount > 0)
+                  Positioned(
+                    top: -3, right: -3,
+                    child: Container(
+                      width: 16, height: 16,
+                      decoration: BoxDecoration(
+                        color: BizColors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: BizColors.forest, width: 2),
+                      ),
+                      child: Center(child: Text('$_notifCount',
+                        style: const TextStyle(color: Colors.white, fontSize: 7,
+                          fontWeight: FontWeight.w900))),
+                    ),
+                  ),
+              ]),
             ),
             const SizedBox(width: 8),
             Container(
@@ -159,7 +443,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(19),
               ),
               child: const Center(
-                child: Text('✂️', style: TextStyle(fontSize: 18)),
+                child: Text('🦷', style: TextStyle(fontSize: 18)),
               ),
             ),
           ]),
@@ -168,16 +452,132 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildOpenCloseToggle() {
+    final Color activeColor = _onBreak
+        ? const Color(0xFFD48A00)
+        : (_isOpen ? BizColors.green : BizColors.red);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 4),
+      child: Column(children: [
+        // ── Main status card ──────────────────────────────────────
+        GestureDetector(
+          onTap: (_loadingStatus || _onBreak) ? null : () => _toggleOpen(!_isOpen),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              color: activeColor.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: activeColor.withOpacity(0.3), width: 1.5),
+              boxShadow: BizColors.shadow,
+            ),
+            child: Row(children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: activeColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Center(child: Icon(
+                  _onBreak ? Icons.coffee_rounded
+                      : (_isOpen ? Icons.store_rounded : Icons.store_mall_directory_outlined),
+                  color: activeColor, size: 22,
+                )),
+              ),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  _onBreak ? 'Fasilədə — $_breakLabel sonra qayıdır'
+                      : (_isOpen ? 'Biznes Açıqdır' : 'Biznes Bağlıdır'),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: activeColor),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _onBreak ? '"Fasil. Bitir" düyməsinə basın'
+                      : (_isOpen ? 'Müştərilərdən yeni rezervlər qəbul edilir'
+                          : 'Hazırda yeni rezervlər qəbul edilmir'),
+                  style: TextStyle(fontSize: 11, color: BizColors.textMuted),
+                ),
+              ])),
+              _loadingStatus
+                  ? SizedBox(width: 24, height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: activeColor))
+                  : _onBreak
+                      ? const SizedBox.shrink()
+                      : Switch(
+                          value: _isOpen,
+                          onChanged: _toggleOpen,
+                          activeColor: BizColors.green,
+                          activeTrackColor: BizColors.green.withOpacity(0.3),
+                          inactiveThumbColor: BizColors.red,
+                          inactiveTrackColor: BizColors.red.withOpacity(0.25),
+                        ),
+            ]),
+          ),
+        ),
+
+        // ── Break buttons ─────────────────────────────────────────
+        const SizedBox(height: 10),
+        Row(children: [
+          if (_onBreak) ...[
+            Expanded(child: GestureDetector(
+              onTap: _endBreakEarly,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: BizColors.green.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: BizColors.green.withOpacity(0.3)),
+                ),
+                child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.store_rounded, size: 15, color: BizColors.green),
+                  const SizedBox(width: 6),
+                  Text('Fasil. Bitir', style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: BizColors.green)),
+                ])),
+              ),
+            )),
+          ] else ...[
+            Expanded(child: GestureDetector(
+              onTap: _isOpen ? _showBreakPicker : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: _isOpen
+                      ? const Color(0xFFD48A00).withOpacity(0.10)
+                      : BizColors.bgMuted,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _isOpen
+                        ? const Color(0xFFD48A00).withOpacity(0.3)
+                        : Colors.transparent),
+                ),
+                child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text('☕', style: TextStyle(fontSize: 14,
+                    color: _isOpen ? null : BizColors.textLight)),
+                  const SizedBox(width: 6),
+                  Text('Fasilə Al', style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700,
+                    color: _isOpen ? const Color(0xFFD48A00) : BizColors.textLight)),
+                ])),
+              ),
+            )),
+          ],
+        ]),
+      ]),
+    );
+  }
+
   Widget _buildStatsRow() {
     final stats = [
-      {'label': 'Today', 'value': '5', 'sub': 'bookings', 'icon': Icons.calendar_today_rounded, 'color': 0xFF4A90D9},
-      {'label': 'Revenue', 'value': '140₼', 'sub': 'today', 'icon': Icons.payments_rounded, 'color': 0xFF3DAD7F},
-      {'label': 'Pending', 'value': '2', 'sub': 'to confirm', 'icon': Icons.pending_rounded, 'color': 0xFFFFB830},
-      {'label': 'Rating', 'value': '4.9', 'sub': '318 reviews', 'icon': Icons.star_rounded, 'color': 0xFFFF4D6A},
+      {'label': 'Bu gün', 'value': '5', 'sub': 'rezerv', 'icon': Icons.calendar_today_rounded, 'color': 0xFF4A90D9, 'hideRevenue': false},
+      {'label': 'Gəlir', 'value': '140₼', 'sub': 'bu gün', 'icon': Icons.payments_rounded, 'color': 0xFF3DAD7F, 'hideRevenue': true},
+      {'label': 'Gözləyən', 'value': '2', 'sub': 'təsdiq üçün', 'icon': Icons.pending_rounded, 'color': 0xFFFFB830, 'hideRevenue': false},
+      {'label': 'Reytinq', 'value': '4.9', 'sub': '318 rəy', 'icon': Icons.star_rounded, 'color': 0xFFFF4D6A, 'hideRevenue': false},
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
       child: GridView.count(
         crossAxisCount: 2,
         shrinkWrap: true,
@@ -187,43 +587,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
         childAspectRatio: 2.2,
         children: stats.map((s) {
           final color = Color(s['color'] as int);
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: BizColors.bgCard,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: BizColors.shadow,
+          final isRevenue = s['hideRevenue'] as bool;
+          final displayValue = isRevenue && !_showRevenue ? '•••' : s['value'] as String;
+          return GestureDetector(
+            onTap: isRevenue ? () => setState(() => _showRevenue = !_showRevenue) : null,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: BizColors.bgCard,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: BizColors.shadow,
+              ),
+              child: Row(children: [
+                Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Center(
+                    child: Icon(s['icon'] as IconData,
+                      color: color, size: 18),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(children: [
+                      Text(displayValue, style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: BizColors.forest,
+                      )),
+                      if (isRevenue) ...[
+                        const SizedBox(width: 4),
+                        Icon(_showRevenue ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                          size: 12, color: BizColors.textLight),
+                      ],
+                    ]),
+                    Text(s['sub'] as String, style: TextStyle(
+                      fontSize: 9,
+                      color: BizColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    )),
+                  ],
+                )),
+              ]),
             ),
-            child: Row(children: [
-              Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Center(
-                  child: Icon(s['icon'] as IconData,
-                    color: color, size: 18),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(s['value'] as String, style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: BizColors.forest,
-                  )),
-                  Text(s['sub'] as String, style: TextStyle(
-                    fontSize: 9,
-                    color: BizColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                  )),
-                ],
-              ),
-            ]),
           );
         }).toList(),
       ),
@@ -231,6 +643,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRevenueCard() {
+    String revVal(String v) => _showRevenue ? v : '•••';
     return Container(
       margin: const EdgeInsets.fromLTRB(18, 8, 18, 8),
       padding: const EdgeInsets.all(18),
@@ -245,11 +658,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Weekly Revenue', style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: BizColors.forest,
-              )),
+              Row(children: [
+                Text('Həftəlik Gəlir', style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: BizColors.forest,
+                )),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => setState(() => _showRevenue = !_showRevenue),
+                  child: Icon(
+                    _showRevenue ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                    size: 16, color: BizColors.textLight),
+                ),
+              ]),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -260,7 +682,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Icon(Icons.trending_up_rounded,
                     color: BizColors.green, size: 13),
                   const SizedBox(width: 4),
-                  Text('+18% vs last week', style: TextStyle(
+                  Text('+18% keçən həftəyə nisbətən', style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: BizColors.green,
@@ -274,24 +696,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _buildBar('Mon', 0.6, '84₼'),
-              _buildBar('Tue', 0.8, '112₼'),
-              _buildBar('Wed', 0.5, '70₼'),
-              _buildBar('Thu', 0.9, '126₼'),
-              _buildBar('Fri', 0.7, '98₼'),
-              _buildBar('Sat', 1.0, '140₼', isToday: true),
-              _buildBar('Sun', 0.0, '0₼'),
+              _buildBar('B.E', 0.6, revVal('84₼')),
+              _buildBar('Ç.A', 0.8, revVal('112₼')),
+              _buildBar('Çər', 0.5, revVal('70₼')),
+              _buildBar('C.A', 0.9, revVal('126₼')),
+              _buildBar('Cüm', 0.7, revVal('98₼')),
+              _buildBar('Şnb', 1.0, revVal('140₼'), isToday: true),
+              _buildBar('Baz', 0.0, revVal('0₼')),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('This week total', style: TextStyle(
+              Text('Bu həftə cəmi', style: TextStyle(
                 fontSize: 12,
                 color: BizColors.textMuted,
               )),
-              Text('630 AZN', style: TextStyle(
+              Text(_showRevenue ? '630 AZN' : '•••', style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
                 color: BizColors.forest,
@@ -337,10 +759,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Bookings', style: TextStyle(
+          const Text('Rezervasiyalar', style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF2C3528),
+            color: BizColors.textPrimary,
             letterSpacing: -0.3,
           )),
           Row(
@@ -401,7 +823,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(13),
         child: Row(
           children: [
-            // Time column
             SizedBox(
               width: 44,
               child: Column(
@@ -425,7 +846,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 12),
               color: BizColors.bgMuted,
             ),
-            // Avatar
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
@@ -436,7 +856,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: const TextStyle(fontSize: 18))),
             ),
             const SizedBox(width: 10),
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +863,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(b['name'] as String, style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF2C3528),
+                    color: BizColors.textPrimary,
                   )),
                   Text(b['service'] as String, style: TextStyle(
                     fontSize: 11,
@@ -453,7 +872,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            // Right side
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -470,7 +888,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: BizColors.green.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text('Confirmed', style: TextStyle(
+                    child: Text('Təsdiqləndi', style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                       color: BizColors.green,

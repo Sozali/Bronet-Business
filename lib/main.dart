@@ -4,6 +4,8 @@ import 'screens/bookings_manager_screen.dart';
 import 'screens/services_screen.dart';
 import 'screens/schedule_screen.dart';
 import 'screens/business_profile_screen.dart';
+import 'screens/login_screen.dart';
+import 'services/auth_service.dart';
 
 void main() {
   runApp(const BronetBusinessApp());
@@ -18,12 +20,16 @@ class BronetBusinessApp extends StatelessWidget {
       title: "BRON'ET Business",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFF0F5EC),
+        scaffoldBackgroundColor: const Color(0xFFEEF5FB),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFA8B6A1),
+          seedColor: const Color(0xFF1A6CC5),
         ),
       ),
-      home: const RootScreen(),
+      home: BizAuthService.isLoggedIn ? const RootScreen() : const BizLoginScreen(),
+      routes: {
+        '/root': (_) => const RootScreen(),
+        '/login': (_) => const BizLoginScreen(),
+      },
     );
   }
 }
@@ -59,17 +65,17 @@ class _RootScreenState extends State<RootScreen> {
 
   Widget _buildNav() {
     final tabs = [
-      {'icon': Icons.dashboard_rounded,       'label': 'Dashboard'},
-      {'icon': Icons.calendar_month_rounded,  'label': 'Bookings'},
-      {'icon': Icons.design_services_rounded, 'label': 'Services'},
-      {'icon': Icons.schedule_rounded,        'label': 'Schedule'},
-      {'icon': Icons.store_rounded,           'label': 'Profile'},
+      {'icon': Icons.dashboard_rounded,       'label': 'İdarə Paneli'},
+      {'icon': Icons.calendar_month_rounded,  'label': 'Rezervlər'},
+      {'icon': Icons.design_services_rounded, 'label': 'Xidmətlər'},
+      {'icon': Icons.schedule_rounded,        'label': 'Cədvəl'},
+      {'icon': Icons.store_rounded,           'label': 'Profil'},
     ];
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(
-          color: const Color(0xFFA8B6A1).withOpacity(0.2))),
+          color: const Color(0xFF68A8D4).withOpacity(0.2))),
         boxShadow: const [BoxShadow(
           color: Color(0x0F000000),
           blurRadius: 20, offset: Offset(0, -4),
@@ -90,7 +96,7 @@ class _RootScreenState extends State<RootScreen> {
                     horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
                     color: active
-                        ? const Color(0xFFA8B6A1).withOpacity(0.15)
+                        ? const Color(0xFF1A6CC5).withOpacity(0.10)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -99,8 +105,8 @@ class _RootScreenState extends State<RootScreen> {
                     children: [
                       Icon(tabs[i]['icon'] as IconData,
                         color: active
-                            ? const Color(0xFF2C3528)
-                            : const Color(0xFF9AAA94),
+                            ? const Color(0xFF1A6CC5)
+                            : const Color(0xFF78A0C0),
                         size: 22),
                       const SizedBox(height: 3),
                       Text(tabs[i]['label'] as String,
@@ -108,8 +114,8 @@ class _RootScreenState extends State<RootScreen> {
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
                           color: active
-                              ? const Color(0xFF2C3528)
-                              : const Color(0xFF9AAA94),
+                              ? const Color(0xFF1A6CC5)
+                              : const Color(0xFF78A0C0),
                         )),
                     ],
                   ),

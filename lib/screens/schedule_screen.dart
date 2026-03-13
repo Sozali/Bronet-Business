@@ -9,14 +9,14 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final List<String> _days = ['B.E', 'Ç.A', 'Çər', 'C.A', 'Cüm', 'Şnb', 'Baz'];
   late List<String> _dates;
   late int _selectedDay;
   late String _monthLabel;
 
   static const _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
+    'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr',
   ];
 
   @override
@@ -30,38 +30,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   final Map<String, bool> _workingDays = {
-    'Mon': true,
-    'Tue': true,
-    'Wed': true,
-    'Thu': true,
-    'Fri': true,
-    'Sat': true,
-    'Sun': false,
+    'B.E': true,
+    'Ç.A': true,
+    'Çər': true,
+    'C.A': true,
+    'Cüm': true,
+    'Şnb': true,
+    'Baz': false,
   };
 
   final Map<String, List<String>> _hours = {
-    'Mon': ['09:00', '20:00'],
-    'Tue': ['09:00', '20:00'],
-    'Wed': ['09:00', '20:00'],
-    'Thu': ['09:00', '20:00'],
-    'Fri': ['09:00', '21:00'],
-    'Sat': ['10:00', '22:00'],
-    'Sun': ['Closed', 'Closed'],
+    'B.E': ['09:00', '20:00'],
+    'Ç.A': ['09:00', '20:00'],
+    'Çər': ['09:00', '20:00'],
+    'C.A': ['09:00', '20:00'],
+    'Cüm': ['09:00', '21:00'],
+    'Şnb': ['10:00', '22:00'],
+    'Baz': ['Bağlı', 'Bağlı'],
   };
 
   final List<Map<String, dynamic>> _slots = [
-    {'time': '09:00', 'client': 'Rauf M.', 'service': 'Classic Haircut', 'duration': 30, 'status': 'confirmed'},
-    {'time': '10:00', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
+    {'time': '09:30', 'client': 'Rauf M.', 'service': 'Diş Ağardılması', 'duration': 60, 'status': 'confirmed'},
     {'time': '10:30', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
-    {'time': '11:00', 'client': 'Leyla Ə.', 'service': 'Hair Coloring', 'duration': 90, 'status': 'confirmed'},
+    {'time': '11:00', 'client': 'Leyla Ə.', 'service': 'Diş Təmizlənməsi', 'duration': 45, 'status': 'confirmed'},
+    {'time': '11:45', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
     {'time': '12:30', 'client': '', 'service': '', 'duration': 30, 'status': 'break'},
-    {'time': '13:00', 'client': 'Tural H.', 'service': 'Classic Haircut', 'duration': 30, 'status': 'pending'},
+    {'time': '13:00', 'client': 'Tural H.', 'service': 'Breket Məsləhəti', 'duration': 30, 'status': 'pending'},
     {'time': '13:30', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
     {'time': '14:00', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
-    {'time': '14:30', 'client': 'Nigar Q.', 'service': 'Beard Trim', 'duration': 20, 'status': 'confirmed'},
-    {'time': '15:00', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
+    {'time': '14:30', 'client': 'Nigar Q.', 'service': 'Diş Dolğusu', 'duration': 50, 'status': 'confirmed'},
     {'time': '15:30', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
-    {'time': '16:00', 'client': 'Elşən B.', 'service': 'Haircut + Beard', 'duration': 45, 'status': 'pending'},
+    {'time': '16:00', 'client': 'Elşən B.', 'service': 'Rentgen & Müayinə', 'duration': 30, 'status': 'pending'},
+    {'time': '16:30', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
     {'time': '17:00', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
     {'time': '17:30', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
     {'time': '18:00', 'client': '', 'service': '', 'duration': 30, 'status': 'free'},
@@ -90,10 +90,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Schedule', style: TextStyle(
+          const Text('Cədvəl', style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF2C3528),
+            color: BizColors.textPrimary,
             letterSpacing: -0.5,
           )),
           Row(children: [
@@ -191,7 +191,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF2C3528), Color(0xFF1E2A1A)],
+          colors: [BizColors.forest, BizColors.forestDeep],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: BizColors.shadow,
@@ -208,7 +208,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(isWorking ? '${hours[0]} – ${hours[1]}' : 'Day Off',
+            Text(isWorking ? '${hours[0]} – ${hours[1]}' : 'İstirahət günü',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
@@ -216,9 +216,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               )),
           ]),
           Row(children: [
-            _miniStat('$booked', 'Booked', BizColors.amber),
+            _miniStat('$booked', 'Rezerv', BizColors.amber),
             const SizedBox(width: 16),
-            _miniStat('$free', 'Free', BizColors.green),
+            _miniStat('$free', 'Boş', BizColors.green),
             const SizedBox(width: 16),
             GestureDetector(
               onTap: () => setState(() => _workingDays[day] = !isWorking),
@@ -230,7 +230,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       : BizColors.green.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(isWorking ? 'Set Off' : 'Set On',
+                child: Text(isWorking ? 'İstirahət' : 'İş günü',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -326,7 +326,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       Icon(Icons.add_rounded,
                         color: BizColors.textLight, size: 14),
                       const SizedBox(width: 6),
-                      Text('Available slot', style: TextStyle(
+                      Text('Boş slot', style: TextStyle(
                         fontSize: 12,
                         color: BizColors.textLight,
                       )),
@@ -336,7 +336,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           Icon(Icons.coffee_rounded,
                             color: BizColors.textMuted, size: 14),
                           const SizedBox(width: 6),
-                          Text('Break time', style: TextStyle(
+                          Text('Fasilə vaxtı', style: TextStyle(
                             fontSize: 12,
                             color: BizColors.textMuted,
                             fontWeight: FontWeight.w600,
@@ -352,7 +352,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFF2C3528),
+                                    color: BizColors.textPrimary,
                                   )),
                                 const SizedBox(height: 3),
                                 Text(slot['service'] as String,
@@ -373,7 +373,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    isPending ? 'Pending' : 'Confirmed',
+                                    isPending ? 'Gözləyir' : 'Təsdiqləndi',
                                     style: TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
@@ -381,7 +381,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                     )),
                                 ),
                                 const SizedBox(height: 4),
-                                Text('${slot['duration']} min',
+                                Text('${slot['duration']} dəq',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: BizColors.textLight,

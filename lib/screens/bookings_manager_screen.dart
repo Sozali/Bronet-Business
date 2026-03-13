@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
+import '../services/booking_api.dart';
 
 class BookingsManagerScreen extends StatefulWidget {
   const BookingsManagerScreen({super.key});
@@ -10,34 +12,103 @@ class BookingsManagerScreen extends StatefulWidget {
 
 class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
   int _selectedTab = 0;
-  final List<String> _tabs = ['All', 'Pending', 'Confirmed', 'Completed'];
+  final List<String> _tabs = ['Hamısı', 'Gözləyən', 'Təsdiqlənmiş', 'Tamamlanmış'];
+  Timer? _pollTimer;
+  bool _serverConnected = false;
+  final Set<String> _knownIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
+    _poll(); // immediate first fetch
+  }
+
+  Future<void> _poll() async {
+    final serverBookings = await BookingApi.fetchBookings();
+    if (!mounted) return;
+    if (serverBookings.isEmpty) {
+      if (_serverConnected) setState(() => _serverConnected = false);
+      return;
+    }
+    setState(() => _serverConnected = true);
+
+    // Find truly new bookings (not already in our list)
+    final newOnes = serverBookings.where((sb) {
+      final id = sb['id'] as String;
+      return !_knownIds.contains(id) &&
+          !_bookings.any((b) => b['id'] == id);
+    }).toList();
+
+    if (newOnes.isEmpty) return;
+
+    setState(() {
+      for (final nb in newOnes) {
+        _knownIds.add(nb['id'] as String);
+        _bookings.insert(0, {
+          'name': nb['clientName'] ?? 'Yeni Xəstə',
+          'service': nb['service'] ?? '',
+          'date': nb['date'] ?? 'Bu gün',
+          'time': nb['time'] ?? '',
+          'duration': '45 min',
+          'price': nb['price'] ?? '',
+          'status': 'pending',
+          'avatar': '👤',
+          'phone': '+994 50 000 00 00',
+          'id': nb['id'],
+          'isNew': true,
+        });
+      }
+    });
+
+    if (newOnes.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          '📥 Yeni rezerv: ${newOnes.first['service']} — ${newOnes.first['clientName']}'),
+        backgroundColor: BizColors.forest,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+      ));
+    }
+  }
 
   void _declineBooking(Map<String, dynamic> b) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Decline Booking', style: TextStyle(
-          fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
-        content: Text('Decline ${b['service']} for ${b['name']}?',
-          style: const TextStyle(fontSize: 14, color: Color(0xFF6E7E68))),
+        title: const Text('Rezervi Rədd Et', style: TextStyle(
+          fontWeight: FontWeight.w800, color: BizColors.textPrimary)),
+        content: Text('${b['name']} üçün ${b['service']} rədd edilsin?',
+          style: const TextStyle(fontSize: 14, color: BizColors.textMuted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF7B9180))),
+            child: const Text('Ləğv et', style: TextStyle(color: BizColors.textMuted)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               setState(() => _bookings.remove(b));
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Booking declined for ${b['name']}'),
+                content: Text('${b['name']} üçün rezerv rədd edildi'),
                 backgroundColor: BizColors.red,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ));
             },
-            child: Text('Decline',
+            child: Text('Rədd et',
               style: TextStyle(color: BizColors.red, fontWeight: FontWeight.w700)),
           ),
         ],
@@ -50,33 +121,112 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Mark as Complete', style: TextStyle(
-          fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
-        content: Text('Mark ${b['service']} for ${b['name']} as completed?',
-          style: const TextStyle(fontSize: 14, color: Color(0xFF6E7E68))),
+        title: const Text('Tamamlandı kimi işarələ', style: TextStyle(
+          fontWeight: FontWeight.w800, color: BizColors.textPrimary)),
+        content: Text('${b['name']} üçün ${b['service']} tamamlandı?',
+          style: const TextStyle(fontSize: 14, color: BizColors.textMuted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF7B9180))),
+            child: const Text('Ləğv et', style: TextStyle(color: BizColors.textMuted)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               setState(() => b['status'] = 'completed');
+              BookingApi.updateStatus(b['id'] as String, 'completed');
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('${b['service']} marked as complete'),
+                content: Text('${b['service']} tamamlandı'),
                 backgroundColor: BizColors.green,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ));
+              // Show business feedback dialog
+              Future.delayed(const Duration(milliseconds: 400), () {
+                if (!mounted) return;
+                _showBusinessFeedback(b);
+              });
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: BizColors.forest,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+            child: const Text('Təsdiqlə', style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showBusinessFeedback(Map<String, dynamic> b) {
+    int stars = 0;
+    final noteCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Müştəri Qeydi Əlavə Et', style: TextStyle(
+            fontWeight: FontWeight.w800, color: BizColors.textPrimary, fontSize: 15)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${b['name']} — ${b['service']}',
+                style: const TextStyle(fontSize: 13, color: BizColors.textMuted)),
+              const SizedBox(height: 16),
+              const Text('Xidmət keyfiyyəti reytinqi:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BizColors.textPrimary)),
+              const SizedBox(height: 8),
+              Row(
+                children: List.generate(5, (i) => GestureDetector(
+                  onTap: () => setDlg(() => stars = i + 1),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      i < stars ? Icons.star_rounded : Icons.star_outline_rounded,
+                      size: 28,
+                      color: i < stars ? const Color(0xFFFFB830) : BizColors.bgMuted,
+                    ),
+                  ),
+                )),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: noteCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Bu müştəri haqqında qeyd (isteğe bağlı)...',
+                  hintStyle: TextStyle(fontSize: 12, color: BizColors.textLight),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Keç', style: TextStyle(color: BizColors.textMuted)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: const Text('Müştəri qeydi saxlanıldı'),
+                  backgroundColor: BizColors.forest,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ));
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: BizColors.forest,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Göndər & Tamamla', style: TextStyle(color: Colors.white, fontSize: 12)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -87,7 +237,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(b['name'] as String, style: const TextStyle(
-          fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
+          fontWeight: FontWeight.w800, color: BizColors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -101,7 +251,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                 Icon(Icons.phone_rounded, color: BizColors.sageDark, size: 20),
                 const SizedBox(width: 10),
                 Text(b['phone'] as String, style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF2C3528))),
+                  fontSize: 16, fontWeight: FontWeight.w800, color: BizColors.textPrimary)),
               ]),
             ),
           ],
@@ -109,7 +259,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Color(0xFF7B9180))),
+            child: const Text('Bağla', style: TextStyle(color: BizColors.textMuted)),
           ),
         ],
       ),
@@ -119,11 +269,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
   final List<Map<String, dynamic>> _bookings = [
     {
       'name': 'Rauf Məmmədov',
-      'service': 'Classic Haircut + Beard',
-      'date': 'Today',
-      'time': '10:00',
-      'duration': '45 min',
-      'price': '25 AZN',
+      'service': 'Diş Ağardılması',
+      'date': 'Bu gün',
+      'time': '09:30',
+      'duration': '60 dəq',
+      'price': '120 AZN',
       'status': 'confirmed',
       'avatar': '👨',
       'phone': '+994 50 123 45 67',
@@ -131,11 +281,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     },
     {
       'name': 'Leyla Əliyeva',
-      'service': 'Hair Coloring',
-      'date': 'Today',
-      'time': '11:30',
-      'duration': '90 min',
-      'price': '65 AZN',
+      'service': 'Diş Təmizlənməsi',
+      'date': 'Bu gün',
+      'time': '11:00',
+      'duration': '45 dəq',
+      'price': '55 AZN',
       'status': 'confirmed',
       'avatar': '👩',
       'phone': '+994 55 234 56 78',
@@ -143,11 +293,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     },
     {
       'name': 'Tural Hüseynov',
-      'service': 'Classic Haircut',
-      'date': 'Today',
+      'service': 'Breket Məsləhəti',
+      'date': 'Bu gün',
       'time': '13:00',
-      'duration': '30 min',
-      'price': '15 AZN',
+      'duration': '30 dəq',
+      'price': '40 AZN',
       'status': 'pending',
       'avatar': '👨',
       'phone': '+994 51 345 67 89',
@@ -155,11 +305,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     },
     {
       'name': 'Nigar Quliyeva',
-      'service': 'Beard Trim',
-      'date': 'Today',
+      'service': 'Diş Dolğusu',
+      'date': 'Bu gün',
       'time': '14:30',
-      'duration': '20 min',
-      'price': '10 AZN',
+      'duration': '50 dəq',
+      'price': '80 AZN',
       'status': 'pending',
       'avatar': '👩',
       'phone': '+994 70 456 78 90',
@@ -167,11 +317,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     },
     {
       'name': 'Elşən Babayev',
-      'service': 'Classic Haircut + Beard',
-      'date': 'Tomorrow',
+      'service': 'Rentgen & Müayinə',
+      'date': 'Sabah',
       'time': '10:00',
-      'duration': '45 min',
-      'price': '25 AZN',
+      'duration': '30 dəq',
+      'price': '35 AZN',
       'status': 'confirmed',
       'avatar': '👨',
       'phone': '+994 77 567 89 01',
@@ -179,11 +329,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     },
     {
       'name': 'Aynur Həsənova',
-      'service': 'Hair Treatment',
-      'date': 'Tomorrow',
+      'service': 'Dərin Təmizlənmə',
+      'date': 'Sabah',
       'time': '12:00',
-      'duration': '60 min',
-      'price': '45 AZN',
+      'duration': '60 dəq',
+      'price': '90 AZN',
       'status': 'pending',
       'avatar': '👩',
       'phone': '+994 50 678 90 12',
@@ -191,11 +341,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     },
     {
       'name': 'Kamran Nəsirov',
-      'service': 'Classic Haircut',
-      'date': 'Mar 6',
+      'service': 'Lazer Ağardması',
+      'date': '6 Mar',
       'time': '15:00',
-      'duration': '30 min',
-      'price': '15 AZN',
+      'duration': '90 dəq',
+      'price': '200 AZN',
       'status': 'completed',
       'avatar': '👨',
       'phone': '+994 55 789 01 23',
@@ -203,11 +353,11 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     },
     {
       'name': 'Günel İsmayılova',
-      'service': 'Beard + Haircut',
-      'date': 'Mar 5',
+      'service': 'Təmizlənmə + Ağardma',
+      'date': '5 Mar',
       'time': '09:00',
-      'duration': '45 min',
-      'price': '25 AZN',
+      'duration': '90 dəq',
+      'price': '150 AZN',
       'status': 'completed',
       'avatar': '👩',
       'phone': '+994 51 890 12 34',
@@ -238,19 +388,60 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     );
   }
 
+  String _todayLabel() {
+    const months = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sen','Okt','Noy','Dek'];
+    final now = DateTime.now();
+    return '${now.day} ${months[now.month - 1]}';
+  }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Bookings', style: TextStyle(
+          const Text('Rezervasiyalar', style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF2C3528),
+            color: BizColors.textPrimary,
             letterSpacing: -0.5,
           )),
           Row(children: [
+            // Live sync indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _serverConnected
+                    ? BizColors.green.withOpacity(0.12)
+                    : BizColors.bgCard,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _serverConnected
+                      ? BizColors.green.withOpacity(0.4)
+                      : BizColors.bgMuted,
+                  width: 1,
+                ),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 7, height: 7,
+                  decoration: BoxDecoration(
+                    color: _serverConnected ? BizColors.green : BizColors.textLight,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  _serverConnected ? 'Canlı' : 'Oflayn',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _serverConnected ? BizColors.green : BizColors.textLight,
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -262,7 +453,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                 Icon(Icons.calendar_today_rounded,
                   color: BizColors.forest, size: 14),
                 const SizedBox(width: 6),
-                Text('Mar 5', style: TextStyle(
+                Text(_todayLabel(), style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: BizColors.forest,
@@ -285,7 +476,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF2C3528), Color(0xFF1E2A1A)],
+          colors: [BizColors.forest, BizColors.forestDeep],
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: BizColors.shadowStrong,
@@ -293,13 +484,13 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _summaryItem('$pending', 'Pending', BizColors.amber),
+          _summaryItem('$pending', 'Gözləyən', BizColors.amber),
           Container(width: 1, height: 30, color: Colors.white.withOpacity(0.1)),
-          _summaryItem('$confirmed', 'Confirmed', BizColors.green),
+          _summaryItem('$confirmed', 'Təsdiqlənmiş', BizColors.green),
           Container(width: 1, height: 30, color: Colors.white.withOpacity(0.1)),
-          _summaryItem('$completed', 'Completed', BizColors.sage),
+          _summaryItem('$completed', 'Tamamlanmış', BizColors.sage),
           Container(width: 1, height: 30, color: Colors.white.withOpacity(0.1)),
-          _summaryItem('${_bookings.length}', 'Total', Colors.white),
+          _summaryItem('${_bookings.length}', 'Cəmi', Colors.white),
         ],
       ),
     );
@@ -321,6 +512,12 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
   }
 
   Widget _buildTabs() {
+    final counts = [
+      _bookings.length,
+      _bookings.where((b) => b['status'] == 'pending').length,
+      _bookings.where((b) => b['status'] == 'confirmed').length,
+      _bookings.where((b) => b['status'] == 'completed').length,
+    ];
     return SizedBox(
       height: 38,
       child: ListView.builder(
@@ -329,11 +526,12 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
         itemCount: _tabs.length,
         itemBuilder: (context, i) {
           final selected = _selectedTab == i;
+          final label = '${_tabs[i]} (${counts[i]})';
           return GestureDetector(
             onTap: () => setState(() => _selectedTab = i),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: selected ? BizColors.forest : BizColors.bgCard,
                 borderRadius: BorderRadius.circular(20),
@@ -344,7 +542,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                 ),
                 boxShadow: selected ? BizColors.shadow : [],
               ),
-              child: Text(_tabs[i], style: TextStyle(
+              child: Text(label, style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: selected ? Colors.white : BizColors.textMuted,
@@ -365,7 +563,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
           children: [
             const Text('📭', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 16),
-            Text('No bookings here', style: TextStyle(
+            Text('Rezervasiya yoxdur', style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: BizColors.textMuted,
@@ -388,15 +586,15 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
     switch (status) {
       case 'confirmed':
         statusColor = BizColors.green;
-        statusLabel = 'Confirmed';
+        statusLabel = 'Təsdiqləndi';
         break;
       case 'pending':
         statusColor = BizColors.amber;
-        statusLabel = 'Pending';
+        statusLabel = 'Gözləyir';
         break;
       default:
         statusColor = BizColors.sageDark;
-        statusLabel = 'Completed';
+        statusLabel = 'Tamamlandı';
     }
 
     return Container(
@@ -436,7 +634,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                           Text(b['name'] as String, style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF2C3528),
+                            color: BizColors.textPrimary,
                           )),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -487,7 +685,10 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
               child: Row(children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() => b['status'] = 'confirmed'),
+                    onTap: () {
+                      setState(() => b['status'] = 'confirmed');
+                      BookingApi.updateStatus(b['id'] as String, 'confirmed');
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
@@ -495,7 +696,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Center(
-                        child: Text('✓ Confirm', style: TextStyle(
+                        child: Text('✓ Təsdiqlə', style: TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -516,7 +717,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                         border: Border.all(color: BizColors.red.withOpacity(0.2)),
                       ),
                       child: Center(
-                        child: Text('✕ Decline', style: TextStyle(
+                        child: Text('✕ Rədd et', style: TextStyle(
                           color: BizColors.red,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -547,7 +748,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                             Icon(Icons.phone_rounded,
                               color: BizColors.sageDark, size: 14),
                             const SizedBox(width: 6),
-                            Text('Call Client', style: TextStyle(
+                            Text('Müştərini Zəng Et', style: TextStyle(
                               color: BizColors.sageDark,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -569,7 +770,7 @@ class _BookingsManagerScreenState extends State<BookingsManagerScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Center(
-                        child: Text('Mark Complete', style: TextStyle(
+                        child: Text('Tamamlandı', style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

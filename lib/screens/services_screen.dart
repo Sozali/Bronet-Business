@@ -10,105 +10,105 @@ class ServicesScreen extends StatefulWidget {
 
 class _ServicesScreenState extends State<ServicesScreen> {
   int _selectedCat = 0;
-  final List<String> _cats = ['All', 'Haircut', 'Beard', 'Treatment', 'Packages'];
+  final List<String> _cats = ['Hamısı', 'Təmizlik', 'Ağardma', 'Ortodontiya', 'Paketlər'];
 
   final List<Map<String, dynamic>> _services = [
     {
-      'name': 'Classic Haircut',
-      'cat': 'Haircut',
-      'duration': '30 min',
-      'price': '15',
-      'bookings': 142,
+      'name': 'Diş Təmizlənməsi',
+      'cat': 'Təmizlik',
+      'duration': '45 dəq',
+      'price': '55',
+      'bookings': 218,
       'active': true,
-      'icon': Icons.content_cut_rounded,
-      'color': 0xFFE8F0E4,
+      'icon': Icons.clean_hands_rounded,
+      'color': 0xFFE6F0FA,
     },
     {
-      'name': 'Premium Haircut',
-      'cat': 'Haircut',
-      'duration': '45 min',
-      'price': '25',
-      'bookings': 98,
+      'name': 'Dərin Təmizlənmə',
+      'cat': 'Təmizlik',
+      'duration': '60 dəq',
+      'price': '90',
+      'bookings': 104,
       'active': true,
-      'icon': Icons.content_cut_rounded,
-      'color': 0xFFE8F0E4,
+      'icon': Icons.sanitizer_rounded,
+      'color': 0xFFE6F0FA,
     },
     {
-      'name': 'Kids Haircut',
-      'cat': 'Haircut',
-      'duration': '20 min',
-      'price': '10',
-      'bookings': 67,
+      'name': 'Diş Dolğusu',
+      'cat': 'Təmizlik',
+      'duration': '50 dəq',
+      'price': '80',
+      'bookings': 87,
       'active': true,
-      'icon': Icons.child_care_rounded,
+      'icon': Icons.medical_services_rounded,
       'color': 0xFFFFF0E8,
     },
     {
-      'name': 'Beard Trim',
-      'cat': 'Beard',
-      'duration': '20 min',
-      'price': '10',
-      'bookings': 89,
+      'name': 'Diş Ağardılması',
+      'cat': 'Ağardma',
+      'duration': '60 dəq',
+      'price': '120',
+      'bookings': 165,
       'active': true,
-      'icon': Icons.face_rounded,
+      'icon': Icons.auto_awesome_rounded,
       'color': 0xFFECF4FC,
     },
     {
-      'name': 'Beard Shaping',
-      'cat': 'Beard',
-      'duration': '30 min',
-      'price': '18',
-      'bookings': 76,
+      'name': 'Lazer Ağardması',
+      'cat': 'Ağardma',
+      'duration': '90 dəq',
+      'price': '200',
+      'bookings': 72,
       'active': true,
-      'icon': Icons.face_rounded,
+      'icon': Icons.flash_on_rounded,
       'color': 0xFFECF4FC,
     },
     {
-      'name': 'Hot Towel Shave',
-      'cat': 'Beard',
-      'duration': '40 min',
-      'price': '22',
-      'bookings': 45,
+      'name': 'Evdə Ağartma Dəsti',
+      'cat': 'Ağardma',
+      'duration': '20 dəq',
+      'price': '65',
+      'bookings': 49,
       'active': false,
-      'icon': Icons.local_fire_department_rounded,
+      'icon': Icons.home_rounded,
       'color': 0xFFFFF0E8,
     },
     {
-      'name': 'Hair Treatment',
-      'cat': 'Treatment',
-      'duration': '60 min',
+      'name': 'Breket Məsləhəti',
+      'cat': 'Ortodontiya',
+      'duration': '30 dəq',
+      'price': '40',
+      'bookings': 56,
+      'active': true,
+      'icon': Icons.psychology_rounded,
+      'color': 0xFFE8F3FC,
+    },
+    {
+      'name': 'Rentgen & Müayinə',
+      'cat': 'Ortodontiya',
+      'duration': '30 dəq',
       'price': '35',
-      'bookings': 34,
+      'bookings': 143,
       'active': true,
-      'icon': Icons.spa_rounded,
-      'color': 0xFFEAF4F0,
+      'icon': Icons.biotech_rounded,
+      'color': 0xFFE8F3FC,
     },
     {
-      'name': 'Scalp Massage',
-      'cat': 'Treatment',
-      'duration': '30 min',
-      'price': '20',
-      'bookings': 28,
-      'active': true,
-      'icon': Icons.self_improvement_rounded,
-      'color': 0xFFEAF4F0,
-    },
-    {
-      'name': 'Haircut + Beard',
-      'cat': 'Packages',
-      'duration': '45 min',
-      'price': '30',
-      'bookings': 186,
+      'name': 'Təmizlənmə + Ağardma',
+      'cat': 'Paketlər',
+      'duration': '90 dəq',
+      'price': '150',
+      'bookings': 211,
       'active': true,
       'icon': Icons.star_rounded,
       'color': 0xFFF0ECF8,
     },
     {
-      'name': 'Full Grooming Package',
-      'cat': 'Packages',
-      'duration': '90 min',
-      'price': '55',
-      'bookings': 52,
+      'name': 'Tam Diş Müayinəsi',
+      'cat': 'Paketlər',
+      'duration': '90 dəq',
+      'price': '120',
+      'bookings': 78,
       'active': true,
       'icon': Icons.workspace_premium_rounded,
       'color': 0xFFF0ECF8,
@@ -138,7 +138,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
         onPressed: _showAddServiceSheet,
         backgroundColor: BizColors.forest,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('Add Service', style: TextStyle(
+        label: const Text('Xidmət Əlavə Et', style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w800,
         )),
@@ -149,8 +149,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
   void _showAddServiceSheet() {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
-    String selectedCat = 'Haircut';
-    String selectedDuration = '30 min';
+    String selectedCat = 'Təmizlik';
+    String selectedDuration = '30 dəq';
 
     showModalBottomSheet(
       context: context,
@@ -178,7 +178,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('Add New Service', style: TextStyle(
+              const Text('Yeni Xidmət Əlavə Et', style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: BizColors.textPrimary,
@@ -188,7 +188,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 controller: nameController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
-                  labelText: 'Service Name',
+                  labelText: 'Xidmətin Adı',
                   filled: true,
                   fillColor: BizColors.bgSurface,
                   border: OutlineInputBorder(
@@ -201,7 +201,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
               DropdownButtonFormField<String>(
                 value: selectedCat,
                 decoration: InputDecoration(
-                  labelText: 'Category',
+                  labelText: 'Kateqoriya',
                   filled: true,
                   fillColor: BizColors.bgSurface,
                   border: OutlineInputBorder(
@@ -209,7 +209,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     borderSide: BorderSide.none,
                   ),
                 ),
-                items: ['Haircut', 'Beard', 'Treatment', 'Packages']
+                items: ['Təmizlik', 'Ağardma', 'Ortodontiya', 'Paketlər']
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
                 onChanged: (v) => setModalState(() => selectedCat = v!),
@@ -220,7 +220,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                   child: DropdownButtonFormField<String>(
                     value: selectedDuration,
                     decoration: InputDecoration(
-                      labelText: 'Duration',
+                      labelText: 'Müddət',
                       filled: true,
                       fillColor: BizColors.bgSurface,
                       border: OutlineInputBorder(
@@ -228,7 +228,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    items: ['20 min', '30 min', '45 min', '60 min', '90 min']
+                    items: ['20 dəq', '30 dəq', '45 dəq', '60 dəq', '90 dəq']
                         .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                         .toList(),
                     onChanged: (v) => setModalState(() => selectedDuration = v!),
@@ -240,7 +240,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     controller: priceController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Price (AZN)',
+                      labelText: 'Qiymət (AZN)',
                       filled: true,
                       fillColor: BizColors.bgSurface,
                       border: OutlineInputBorder(
@@ -267,11 +267,11 @@ class _ServicesScreenState extends State<ServicesScreen> {
                       'bookings': 0,
                       'active': true,
                       'icon': Icons.miscellaneous_services_rounded,
-                      'color': 0xFFE8F0E4,
+                      'color': 0xFFE6F0FA,
                     });
                   });
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('$name added successfully'),
+                    content: Text('$name uğurla əlavə edildi'),
                     backgroundColor: BizColors.green,
                     behavior: SnackBarBehavior.floating,
                   ));
@@ -284,7 +284,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Center(
-                    child: Text('Add Service', style: TextStyle(
+                    child: Text('Xidmət Əlavə Et', style: TextStyle(
                       color: Colors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -306,13 +306,13 @@ class _ServicesScreenState extends State<ServicesScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Services', style: TextStyle(
+            const Text('Xidmətlər', style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF2C3528),
+              color: BizColors.textPrimary,
               letterSpacing: -0.5,
             )),
-            Text('${_services.length} services total',
+            Text('Cəmi ${_services.length} xidmət',
               style: TextStyle(
                 fontSize: 12,
                 color: BizColors.textMuted,
@@ -343,7 +343,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF2C3528), Color(0xFF1E2A1A)],
+          colors: [BizColors.forest, BizColors.forestDeep],
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: BizColors.shadowStrong,
@@ -351,11 +351,11 @@ class _ServicesScreenState extends State<ServicesScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statItem('$active', 'Active', BizColors.green),
+          _statItem('$active', 'Aktiv', BizColors.green),
           Container(width: 1, height: 30, color: Colors.white.withOpacity(0.1)),
-          _statItem('$inactive', 'Inactive', BizColors.red),
+          _statItem('$inactive', 'Deaktiv', BizColors.red),
           Container(width: 1, height: 30, color: Colors.white.withOpacity(0.1)),
-          _statItem('$totalBookings', 'Total Bookings', Colors.white),
+          _statItem('$totalBookings', 'Cəmi Rezerv', Colors.white),
         ],
       ),
     );
@@ -479,7 +479,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     Icon(Icons.bookmark_rounded,
                       size: 11, color: BizColors.textLight),
                     const SizedBox(width: 3),
-                    Text('${s['bookings']} bookings', style: TextStyle(
+                    Text('${s['bookings']} rezerv', style: TextStyle(
                       fontSize: 11,
                       color: BizColors.textMuted,
                     )),
@@ -497,7 +497,18 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 )),
                 const SizedBox(height: 6),
                 GestureDetector(
-                  onTap: () => setState(() => s['active'] = !active),
+                  onTap: () {
+                    setState(() => s['active'] = !active);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(active
+                          ? '${s['name']} dayandırıldı'
+                          : '${s['name']} aktivləşdirildi'),
+                      backgroundColor: active ? BizColors.red : BizColors.green,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ));
+                  },
                   child: Container(
                     width: 44,
                     height: 24,
